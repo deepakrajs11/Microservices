@@ -1,15 +1,20 @@
 package com.deepakraj.order.service.impl;
 
+import com.deepakraj.order.client.ProductClient;
+import com.deepakraj.order.client.UserClient;
 import com.deepakraj.order.dto.*;
 import com.deepakraj.order.exception.OrderNotFoundException;
 import com.deepakraj.order.model.*;
 import com.deepakraj.order.repository.OrderRepository;
 import com.deepakraj.order.service.OrderService;
+import com.deepakraj.order.dto.ProductResponseDTO;
+import com.deepakraj.order.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,35 +23,71 @@ import java.util.stream.Collectors;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
-
+    private final UserClient userClient;
+    private final ProductClient productClient;
     @Override
     public OrderResponse createOrder(CreateOrderRequest request) {
 
-        List<OrderItem> items = request.getItems().stream()
-                .map(item -> OrderItem.builder()
-                        .productId(item.getProductId())
-                        .productName(item.getProductName())
-                        .quantity(item.getQuantity())
-                        .price(item.getPrice())
-                        .build())
-                .collect(Collectors.toList());
+        // 1️⃣ Validate User
+        UserResponseDTO user =
+                userClient.getUserById(Long.parseLong(request.getUserId()));
 
-        BigDecimal total = items.stream()
-                .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (user == null) {
+            throw new RuntimeException("User not found");
+        }
 
-        Order order = Order.builder()
-                .userId(request.getUserId())
-                .items(items)
-                .totalAmount(total)
-                .status(OrderStatus.CREATED)
-                .createdAt(LocalDateTime.now())
-                .build();
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        List<OrderItem> orderItems = new ArrayList<>();
+
+        // 2️⃣ Validate Each Product
+        for (OrderItemRequest itemRequest : request.getItems()) {
+
+            ProductResponseDTO product =
+                    productClient.getProductById(itemRequest.getProductId());
+
+            if (product == null) {
+                throw new RuntimeException(
+                        "Product not found: " + itemRequest.getProductId()
+                );
+            }
+
+            if (product.getStock() < itemRequest.getQuantity()) {
+                throw new RuntimeException(
+                        "Insufficient stock for product: " + product.getName()
+                );
+            }
+
+            // Calculate item total
+            BigDecimal itemTotal =
+                    product.getPrice().multiply(
+                            BigDecimal.valueOf(itemRequest.getQuantity())
+                    );
+
+            totalAmount = totalAmount.add(itemTotal);
+
+            // Build OrderItem
+            OrderItem orderItem = new OrderItem();
+            orderItem.setProductId(product.getId());
+            orderItem.setProductName(product.getName());
+            orderItem.setQuantity(itemRequest.getQuantity());
+            orderItem.setPrice(product.getPrice());
+
+            orderItems.add(orderItem);
+        }
+
+        // 3️⃣ Create Order
+        Order order = new Order();
+        order.setUserId(request.getUserId());
+        order.setItems(orderItems);
+        order.setTotalAmount(totalAmount);
+        order.setStatus(OrderStatus.CREATED);
+        order.setCreatedAt(LocalDateTime.now());
 
         Order saved = orderRepository.save(order);
 
         return mapToResponse(saved);
     }
+
 
     @Override
     public OrderResponse getOrderById(String id) {
