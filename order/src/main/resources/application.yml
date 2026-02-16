@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: order
+
+  data:
+    mongodb:
+      uri: ${ORDER_URI}
+
+server:
+  port: 8083
