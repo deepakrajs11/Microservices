@@ -10,7 +10,7 @@ public interface OrderService {
 
     OrderResponse getOrderById(String id);
 
-    List<OrderResponse> getOrdersByUserId(String userId);
+    List<OrderResponse> getOrdersByUserId(Long userId);
 
     OrderResponse updateOrderStatus(String id, String status);
 

@@ -52,7 +52,6 @@ public class ProductController {
             @RequestParam Integer stock,
             @RequestParam(required = false) MultipartFile image
     ) {
-        id = id.trim();
         return ResponseEntity.ok(
                 productService.updateProduct(id, name, description, price, stock, image)
         );

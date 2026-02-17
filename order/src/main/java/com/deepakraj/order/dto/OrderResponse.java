@@ -14,7 +14,7 @@ import java.util.List;
 public class OrderResponse {
 
     private String id;
-    private String userId;
+    private Long userId;
     private List<OrderItemResponse> items;
     private BigDecimal totalAmount;
     private OrderStatus status;

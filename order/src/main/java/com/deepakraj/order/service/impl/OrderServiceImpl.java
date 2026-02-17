@@ -3,6 +3,8 @@ package com.deepakraj.order.service.impl;
 import com.deepakraj.order.client.ProductClient;
 import com.deepakraj.order.client.UserClient;
 import com.deepakraj.order.dto.*;
+import com.deepakraj.order.event.OrderCreatedEvent;
+import com.deepakraj.order.event.PaymentCompletedEvent;
 import com.deepakraj.order.exception.OrderNotFoundException;
 import com.deepakraj.order.model.*;
 import com.deepakraj.order.repository.OrderRepository;
@@ -10,18 +12,23 @@ import com.deepakraj.order.service.OrderService;
 import com.deepakraj.order.dto.ProductResponseDTO;
 import com.deepakraj.order.dto.UserResponseDTO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final OrderRepository orderRepository;
     private final UserClient userClient;
     private final ProductClient productClient;
@@ -30,7 +37,7 @@ public class OrderServiceImpl implements OrderService {
 
         // 1️⃣ Validate User
         UserResponseDTO user =
-                userClient.getUserById(Long.parseLong(request.getUserId()));
+                userClient.getUserById(request.getUserId());
 
         if (user == null) {
             throw new RuntimeException("User not found");
@@ -84,7 +91,13 @@ public class OrderServiceImpl implements OrderService {
         order.setCreatedAt(LocalDateTime.now());
 
         Order saved = orderRepository.save(order);
-
+        OrderCreatedEvent event =
+                new OrderCreatedEvent(
+                        saved.getId(),
+                        saved.getUserId(),
+                        saved.getTotalAmount()
+                );
+        kafkaTemplate.send("order-topic", event);
         return mapToResponse(saved);
     }
 
@@ -98,7 +111,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public List<OrderResponse> getOrdersByUserId(String userId) {
+    public List<OrderResponse> getOrdersByUserId(Long userId) {
         return orderRepository.findByUserId(userId)
                 .stream()
                 .map(this::mapToResponse)
@@ -140,4 +153,24 @@ public class OrderServiceImpl implements OrderService {
                 .createdAt(order.getCreatedAt())
                 .build();
     }
+
+    @KafkaListener(topics = "payment-topic", groupId = "order-group")
+    public void handlePayment(String message) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper(); // tools.jackson.databind.ObjectMapper
+            PaymentCompletedEvent event = objectMapper.readValue(message, PaymentCompletedEvent.class);
+
+            Optional<Order> optionalOrder = orderRepository.findById(event.getOrderId());
+            if (optionalOrder.isPresent()) {
+                Order order = optionalOrder.get();
+                order.setStatus("SUCCESS".equals(event.getStatus())
+                        ? OrderStatus.PAID
+                        : OrderStatus.CANCELLED);
+                orderRepository.save(order);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to process payment event", e);
+        }
+    }
+
 }

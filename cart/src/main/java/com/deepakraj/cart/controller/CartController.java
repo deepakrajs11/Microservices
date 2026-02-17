@@ -21,7 +21,7 @@ public class CartController {
     }
 
     @GetMapping("/{userId}")
-    public List<CartResponse> getCart(@PathVariable String userId) {
+    public List<CartResponse> getCart(@PathVariable Long userId) {
         return cartService.getCartByUser(userId);
     }
 
@@ -31,7 +31,7 @@ public class CartController {
     }
 
     @DeleteMapping("/clear/{userId}")
-    public void clear(@PathVariable String userId) {
+    public void clear(@PathVariable Long userId) {
         cartService.clearCart(userId);
     }
 }

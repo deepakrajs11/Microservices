@@ -75,7 +75,7 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
-    public List<CartResponse> getCartByUser(String userId) {
+    public List<CartResponse> getCartByUser(Long userId) {
         return cartRepository.findByUserId(userId)
                 .stream()
                 .map(this::mapToResponse)
@@ -88,7 +88,7 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
-    public void clearCart(String userId) {
+    public void clearCart(Long userId) {
         cartRepository.deleteAll(cartRepository.findByUserId(userId));
     }
 

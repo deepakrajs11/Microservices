@@ -9,6 +9,6 @@ import java.util.List;
 @AllArgsConstructor
 public class CreateOrderRequest {
 
-    private String userId;
+    private Long userId;
     private List<OrderItemRequest> items;
 }

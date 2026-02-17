@@ -2,7 +2,7 @@ spring:
   application:
     name: cart
   datasource:
-    url: ${DATABASE_URI}
+    url: ${DB_URI}
     username: ${USER_NAME}
     password: ${PASSWORD}
 
