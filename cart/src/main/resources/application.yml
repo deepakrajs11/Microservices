@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: cart
+  datasource:
+    url: ${DATABASE_URI}
+    username: ${USER_NAME}
+    password: ${PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: 8084
